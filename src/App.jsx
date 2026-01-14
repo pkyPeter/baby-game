@@ -9,9 +9,9 @@ const CONFIG = {
   CAR_EMOJI: '🚗',      // 車子圖標
   LANES: [0.3, 0.5, 0.7], // 三個賽道的高度比例
   TARGET_ITEMS: [
-    { id: 'bottle', emoji: '🍼', label: '奶瓶', time: 3000 },
+    { id: 'pacifier', emoji: '🧸', label: '小奶嘴', time: 3000 },
     { id: 'socks', emoji: '🧦', label: '小襪子', time: 10000 },
-    { id: 'pacifier', emoji: '🧸', label: '小奶嘴', time: 17000 },
+    {  id: 'bottle', emoji: '🍼', label: '奶瓶', time: 17000 },
   ],
   DECO_EMOJIS: ['🌳', '🍦', '🎈', '🍭', '⭐', '🌻', '🐶', '🐱', '☁️', '🍄', '🍎']
 };
