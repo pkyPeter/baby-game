@@ -3,8 +3,8 @@ import { CheckCircle2, ChevronRight, Baby, Heart, ChevronUp, ChevronDown, HelpCi
 
 // 遊戲配置
 const CONFIG = {
-  ITEM_SPEED: 1.5,      // 物品移動速度（已調慢）
-  DECO_SPEED: 1.2,      // 裝飾物移動速度（已調慢）
+  ITEM_SPEED: 1.5,      // 物品移動速度
+  DECO_SPEED: 1.2,      // 裝飾物移動速度
   ROAD_COLOR: '#CBD5E1',// 道路顏色
   CAR_EMOJI: '🚗',      // 車子圖標
   LANES: [0.3, 0.5, 0.7], // 三個賽道的高度比例
@@ -29,9 +29,10 @@ const App = () => {
 
   const handleAllCollected = () => {
     setStage('REVEAL');
-    setTimeout(() => setRevealStep(1), 1200);
-    setTimeout(() => setRevealStep(2), 3200);
-    setTimeout(() => setRevealStep(3), 5200);
+    // 加快揭曉節奏
+    setTimeout(() => setRevealStep(1), 600);
+    setTimeout(() => setRevealStep(2), 1200);
+    setTimeout(() => setRevealStep(3), 2500); // 增加最後一小步顯示感謝語
   };
 
   return (
@@ -50,14 +51,12 @@ const App = () => {
         <RevealScreen revealStep={revealStep} collected={collected} />
       )}
       
-      {/* 裝飾背景 */}
       <div className="absolute top-4 left-10 animate-pulse opacity-20 select-none text-2xl sm:text-4xl">☁️</div>
       <div className="absolute bottom-10 right-10 animate-bounce opacity-10 select-none text-2xl sm:text-4xl" style={{ animationDuration: '5s' }}>☁️</div>
     </div>
   );
 };
 
-// --- 開始畫面 ---
 const TitleScreen = ({ onStart }) => (
   <div className="text-center z-10 p-4 animate-in fade-in zoom-in duration-700 max-w-lg">
     <div className="text-6xl sm:text-7xl mb-4 sm:mb-6 transform scale-x-[-1] inline-block drop-shadow-sm">🚗</div>
@@ -75,19 +74,20 @@ const TitleScreen = ({ onStart }) => (
   </div>
 );
 
-// --- 遊戲邏輯與畫布 ---
 const GamePlay = ({ collected, setCollected, onComplete }) => {
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
   const requestRef = useRef();
   const startTimeRef = useRef(Date.now());
   
+  // 初始化目標物品
   const targets = useRef(CONFIG.TARGET_ITEMS.map(item => ({ 
     ...item, 
     x: 0, 
     lane: Math.floor(Math.random() * 3), 
     spawned: false, 
-    hit: false 
+    hit: false,
+    baseTime: item.time // 記錄原始預定時間
   })));
 
   const decos = useRef([]);
@@ -126,11 +126,9 @@ const GamePlay = ({ collected, setCollected, onComplete }) => {
 
       ctx.clearRect(0, 0, width, height);
 
-      // 1. 賽道背景
       ctx.fillStyle = CONFIG.ROAD_COLOR;
       ctx.fillRect(0, height * 0.2, width, height * 0.6);
 
-      // 2. 分隔線
       ctx.strokeStyle = '#FFFFFF';
       ctx.lineWidth = height * 0.01;
       ctx.setLineDash([width * 0.06, width * 0.06]);
@@ -143,7 +141,6 @@ const GamePlay = ({ collected, setCollected, onComplete }) => {
         ctx.stroke();
       });
 
-      // 3. 車子物理與比例
       const targetY = CONFIG.LANES[laneRef.current];
       carYPos.current += (targetY - carYPos.current) * 0.15;
       
@@ -151,7 +148,6 @@ const GamePlay = ({ collected, setCollected, onComplete }) => {
       const carY = height * carYPos.current;
       const carSize = height * 0.16;
 
-      // 4. 繪製車子 (翻轉朝右)
       ctx.save();
       ctx.translate(carX, carY);
       ctx.scale(-1, 1);
@@ -162,7 +158,6 @@ const GamePlay = ({ collected, setCollected, onComplete }) => {
       ctx.fillText(CONFIG.CAR_EMOJI, vibration, 0);
       ctx.restore();
 
-      // 5. 處理裝飾物
       if (elapsed - lastDecoSpawn.current > 1000) {
         decos.current.push({
           x: width + 100,
@@ -192,9 +187,10 @@ const GamePlay = ({ collected, setCollected, onComplete }) => {
         if (deco.x < -100) decos.current.splice(i, 1);
       }
 
-      // 6. 核心道具
+      // 6. 核心道具邏輯 (含循環機制)
       targets.current.forEach(item => {
-        if (!item.spawned && elapsed >= item.time) {
+        // 如果還沒生成且時間到了，就生成
+        if (!item.spawned && !item.hit && elapsed >= item.time) {
           item.spawned = true;
           item.x = width + (carSize * 2);
         }
@@ -208,17 +204,26 @@ const GamePlay = ({ collected, setCollected, onComplete }) => {
           ctx.textBaseline = 'middle';
           ctx.fillText(item.emoji, item.x, itemY);
 
+          // 碰撞偵測
           const dx = Math.abs(item.x - carX);
           const dy = Math.abs(itemY - carY);
           if (dx < carSize * 0.75 && dy < carSize * 0.5) {
             item.hit = true;
+            item.spawned = false; // 標記為已消失
             setCollected(prev => ({ ...prev, [item.id]: true }));
+          }
+
+          // 重要：如果飛出左側沒吃到，重置它，讓它在 3 秒後再次出現
+          if (item.x < -50) {
+            item.spawned = false;
+            item.time = elapsed + 3000; // 3 秒後重新挑戰
+            item.lane = Math.floor(Math.random() * 3); // 下次隨機換道
           }
         }
       });
 
       const allDone = targets.current.every(i => i.hit);
-      if (allDone && elapsed > CONFIG.TARGET_ITEMS[2].time + 1000) {
+      if (allDone) {
         onComplete();
         return;
       }
@@ -243,7 +248,6 @@ const GamePlay = ({ collected, setCollected, onComplete }) => {
 
   return (
     <div className="relative w-full h-full max-h-[90vh] aspect-video bg-white shadow-2xl flex flex-col overflow-hidden rounded-xl sm:rounded-3xl border-4 sm:border-8 border-white" ref={containerRef}>
-      {/* HUD: 神祕收集條 */}
       <div className="absolute top-2 sm:top-4 left-0 right-0 flex justify-center gap-3 sm:gap-6 z-20">
         {CONFIG.TARGET_ITEMS.map(item => (
           <div key={item.id} className="flex items-center gap-1 sm:gap-2 bg-white/95 backdrop-blur-md px-3 py-1 sm:px-5 sm:py-2 rounded-full shadow-md border border-slate-50">
@@ -261,7 +265,6 @@ const GamePlay = ({ collected, setCollected, onComplete }) => {
 
       <canvas ref={canvasRef} className="w-full h-full block" />
       
-      {/* 左右手搖桿佈局：左側上、右側下 */}
       <div className="absolute inset-0 z-30 pointer-events-none">
         <button 
           onPointerDown={() => setLane(l => Math.max(0, l - 1))}
@@ -284,7 +287,6 @@ const GamePlay = ({ collected, setCollected, onComplete }) => {
   );
 };
 
-// --- 揭曉畫面 (橫向適應) ---
 const RevealScreen = ({ revealStep }) => (
   <div className="z-30 text-center p-4 max-w-xl w-full animate-in fade-in duration-1000">
     <div className="flex justify-center gap-6 mb-4 sm:mb-6">
@@ -330,21 +332,6 @@ const RevealScreen = ({ revealStep }) => (
         </p>
       </div>
 
-      <p 
-        className="text-slate-400 text-sm sm:text-base font-medium transition-all duration-1000 italic"
-        style={{ opacity: revealStep >= 3 ? 1 : 0 }}
-      >
-        「謝謝你陪我們一起跑到這裡」
-      </p>
-      
-      {revealStep >= 3 && (
-         <button 
-           onClick={() => window.location.reload()}
-           className="mt-4 text-slate-300 hover:text-sky-500 underline text-xs transition-colors p-2"
-         >
-           再玩一次
-         </button>
-      )}
     </div>
     
     {revealStep >= 2 && (
