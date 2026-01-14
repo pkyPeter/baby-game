@@ -63,7 +63,7 @@ const TitleScreen = ({ onStart }) => (
     <h1 className="text-2xl sm:text-3xl font-bold text-slate-700 mb-2 tracking-tight">準備好出發了嗎？</h1>
     <p className="text-sm sm:text-base text-slate-500 mb-6 sm:mb-8 font-medium leading-relaxed">
       建議旋轉手機至 <span className="text-sky-500 font-bold">橫向模式</span><br/>
-      收集路上神祕的東西！
+      <strong className='font-bold text-red-600'>收集</strong>路上神祕的東西！
     </p>
     <button 
       onClick={onStart}
